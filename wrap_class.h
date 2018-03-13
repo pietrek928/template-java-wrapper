@@ -6,6 +6,17 @@
 template<class T, class align_t=jint>
 class wrap_class : class_file {
     public:
+    /*template<class ... Targs>
+    inline static auto construct(T *p, args...) {
+        new (p) tst(a);
+        return java_types::special_object_func(args);
+    }
+
+    inline static auto destruct(T *p, class ... Targs) {
+        p->~T();
+        return java_types::special_object_func();
+    }*/
+
     wrap_class(std::string path)
         : class_file(path) {
         // space allocation

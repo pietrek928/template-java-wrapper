@@ -24,11 +24,11 @@ namespace java_access_flags {
 
 namespace java_types {
     template<class T>
-    inline std::string v();
+    inline std::string _v();
 
 #define VAR_DESCR(t, d)        \
     template <>                 \
-    inline std::string v<t>() {  \
+    inline std::string _v<t>() {  \
         return STR(d);            \
     }
     VAR_DESCR(void, V)
@@ -106,12 +106,9 @@ namespace java_types {
         return obj;
     }
 
-    template<class T, class T2, class ... Targs>
+    template<class ... Targs>
     std::string v() {
-        std::string r = v<T>() + v<T2>();
-        if constexpr(sizeof...(Targs) != 0)
-            return r + v<Targs...>();
-        else return r;
+        return (_v<Targs>() + ... + "");
     }
 
     template<class Tr, class To, class ... Targs>
@@ -119,33 +116,34 @@ namespace java_types {
         return "(" + v<Targs...>() + ")" + v<Tr>();
     }
 
-    template<auto fpc, class Targc_n, class ... Targs_c, class Targj_n, class ... Targs_cw>
-    inline auto __call_f( JNIEnv *e, auto obj, Targj_n& arg_n, Targs_cw&... args) {
+    template<auto fpc, class To, class Targc_n, class ... Targs_c, class Targj_n, class ... Targs_cw>
+    inline auto __call_f( JNIEnv *e, To *obj, Targj_n& arg_n, Targs_cw&... args) {
         tclass<Targc_n> v_cvt(e, arg_n);
-        return __call_f<fpc, Targs_c...>(e, obj, args..., v_cvt);
+        return __call_f<fpc, To, Targs_c...>(e, obj, args..., v_cvt);
     }
 
-    template<auto fpc, class ... Targs_cw>
-    inline auto __call_ret_fpc(auto obj, Targs_cw&... args) {
+    template<auto fpc, class To, class ... Targs_cw>
+    inline auto __call_ret_fpc(To *obj, Targs_cw&... args) {
         static constexpr bool obj_func
-            = !std::is_same<decltype(obj), jobject*>::value;
+            = !std::is_same<To, jobject>::value;
         if constexpr (obj_func)
             return (obj->*fpc)(args...);
         else return fpc(args...);
     }
 
-    template<auto fpc, class ... Targs_cw>
-    inline auto __call_f( JNIEnv *e, auto obj, Targs_cw&... args ) {
+    template<auto fpc, class To, class ... Targs_cw>
+    inline auto __call_f( JNIEnv *e, To *obj, Targs_cw&... args ) {
         static constexpr bool obj_func
-            = !std::is_same<decltype(obj), jobject*>::value;
+            = !std::is_same<To, jobject>::value;
         if constexpr(returns_void(fpc)) { /* the actual function call */
             if constexpr (obj_func) (obj->*fpc)(args...);
                 else fpc(args...);
             return;
         } else {
-            if constexpr (returns_special(fpc))
-                return fpc(obj, args...);
-            else {
+            if constexpr (returns_special(fpc)) {
+                fpc(obj, args...);
+                return;
+            } else {
                 auto r = __call_ret_fpc<fpc>(obj, args...);
                 return tclass<decltype(r)>(r).r(e);
             }
@@ -154,45 +152,34 @@ namespace java_types {
 
     template<auto fpc, class To, class ... Targs_c, class ... Targs_j>
     auto call_f( JNIEnv *e, jobject *_obj, Targs_j... args_j) { /* this function is called by java */
-        return __call_f<fpc, Targs_c...>(
+        return __call_f<fpc, To, Targs_c...>(
                 e, object_ptr<To>(_obj), args_j... ); // TODO: handle exceptions
     }
 
-    template<const int n, auto fpc, class To, class Tr_c, class Targc_n, class ... Targs_c, class ... Targs_j>
-    inline auto f_cvt(Targs_j... args_j) {
-        if constexpr (n != 0) {
-            return f_cvt<n-1, fpc, To, Tr_c, Targs_c..., Targc_n>(
-                    args_j...,
-                    *(to_java_t<Targc_n>*)1/*clang warns here for NULL, 1 suspends it ;pp*/);
-        } else {
-            to_java_t<Tr_c>(*r)(JNIEnv*, jobject*, Targs_j...)
-                = call_f<fpc, To, Targc_n, Targs_c...>;
-            return r;
-        }
-    }
-
-    template<const int n, auto fpc, class To, class Tr_c>
+    /* argument types conversion( neccessary for java function signature ) */
+    template<auto fpc, class To, class Tr_c, class ... Targs_c>
     inline auto f_cvt() {
-        to_java_t<Tr_c>(*r)(JNIEnv*, jobject*) = call_f<fpc, To>;
+        to_java_t<Tr_c>(*r)(JNIEnv*, jobject*, to_java_t<Targs_c> ...)
+            = call_f<fpc, To, Targs_c...>;
         return r;
     }
 
     /* function pointer from class */
     template<auto fpc, class To, class Tr_c, class ... Targs_c>
     inline auto __f(Tr_c(To::*_fpc)(Targs_c...)) {
-        return f_cvt<sizeof...(Targs_c), fpc, To, Tr_c, Targs_c...>();
+        return f_cvt<fpc, To, Tr_c, Targs_c...>();
     }
 
     /* function not from class */
     template<auto fpc, class Tr_c, class ... Targs_c>
     inline auto __f(Tr_c(*_fpc)(Targs_c...)) {
-        return f_cvt<sizeof...(Targs_c), fpc, jobject, Tr_c, Targs_c...>();
+        return f_cvt<fpc, jobject, Tr_c, Targs_c...>();
     }
 
     /* handles special function - operating on object but not from object */
     template<auto fpc, class To, class ... Targs_c>
     inline auto __f(special_object_func(*_fpc)(To*, Targs_c...)) {
-        return f_cvt<sizeof...(Targs_c), fpc, To, void, Targs_c...>();
+        return f_cvt<fpc, To, special_object_func, Targs_c...>();
     }
 
     template<auto fpc>
