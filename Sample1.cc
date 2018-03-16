@@ -1,6 +1,10 @@
 #include "Sample1.h"
 #include <ctype.h>
 #include <string.h>
+#include <iostream>
+#include <fstream>
+
+#include "class_file.h"
 
 // Mutate array to uppercase
 void uppercase(char* str) {
@@ -26,6 +30,10 @@ JNIEXPORT jboolean JNICALL Java_Sample1_booleanMethod
     printf("ooooooo %d\n", 100-nn);
     jclass cls = env->GetObjectClass(obj);
     printf("id=%d\n", env->GetFieldID(cls, "a", "I"));
+
+    //
+    java_types::detect_object_offset(env);
+
     return !boolean;
 }
 

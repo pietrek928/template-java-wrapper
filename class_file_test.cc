@@ -5,24 +5,33 @@
 
 using namespace std;
 
-inline int oo(int a, int b, bool c, unsigned char d) {
-    cout << "ooooooo" << endl;
-    return a+b+c+d;
+int save_ret_val;
+template<class Tr, class Targs...>
+Tr sum_func(Targs ... args) {
+    save_ret_val += args + ... + 1;
+    return save_ret_val;
 }
 
+template<class Tr, class Targs...>
 class tst {
-    int a;
     public:
-    tst() {
-        a = 123;
-        cout << a << endl;
+    Tr a = 1;
+    tst(Targs ... args) {
+        a += sum_func(args...);
+        save_ret_val = a;
     }
-    int u() {return 2;}
-        void rr( int a, bool b ) {
-            cout << a+b << endl;
-        }
+    Tr sum(Targs ... args) {
+        auto r = args + ... + 1;
+        a += r;
+        save_ret_val = a;
+        return r;
+    }
+    void sumv(Targs ... args) {
+        a += args + ... + 1;
+    }
     ~tst() {
-        cout << "]]]" << endl;
+        a += 1;
+        save_ret_val = a;
     }
 };
 
@@ -57,7 +66,7 @@ int main() {
     cout << java_types::v(fs) << endl;
     ppp(tst().u(), tst().u());
     cout << "kkkkk" << endl;
-    //wrap_class<tst> cw("eeeeeelo");
+    wrap_class<tst> cw("eeeeeelo");
     //cout << &tst::tst << endl;
     return 0;
 }

@@ -162,10 +162,11 @@ class class_file {
         }
 
 #ifdef _GLIBCXX_FSTREAM
-        void to_file(std::string name) {
+        auto to_file(std::string name) {
             std::ofstream F(name, std::ofstream::binary);
             F.write((const char *)&*begin(), size());
             F.close();
+            return *this;
         }
 #endif
     };
@@ -228,10 +229,10 @@ class class_file {
         return r;
     }
 
-    void load_class(JNIEnv *e) {
+    jclass reg_class(JNIEnv *e) {
         auto class_data = build();
         jclass clazz = e->DefineClass(name.c_str(), NULL, (const jbyte*)&*class_data.begin(), class_data.size());
-        if (!clazz) {} // TODO: !!!!!!
+        if (!clazz) {fprintf(stderr, "class error.\n"); return NULL;} // TODO: !!!!!!
         std::vector<JNINativeMethod> ncvt;
         for (auto &n : native_methods) {
             JNINativeMethod md = {(char*)n.name.c_str(), (char*)n.descr.c_str(), n.fp};
@@ -240,11 +241,12 @@ class class_file {
         if (e->RegisterNatives(clazz, &*ncvt.begin(), ncvt.size()) < 0) {
             // TODO: !!!!!!
         }
+        return clazz;
     } 
 
     template<typename Tf, class ... Cargs>
     u2 new_const(Tf f, Cargs ... args) {
-        auto v = file_descr.constant_pool.add();
+        auto &v = file_descr.constant_pool.add();
         f(v, args...);
         return file_descr.constant_pool.size();
     }
@@ -255,7 +257,7 @@ class class_file {
 
     int last_var_n = 0;
     auto &var(std::string t, std::string n = "", u2 access = java_access_flags::PRIVATE) {
-        auto v = file_descr.fields.add();
+        auto &v = file_descr.fields.add();
         if (n.empty()) n = "v" + std::to_string(last_var_n++);
         v.name_index = add_str(n);
         v.descriptor_index = add_str(t);
@@ -266,7 +268,7 @@ class class_file {
     template<auto fp>
     auto &native(std::string n, u2 access = java_access_flags::PUBLIC) {
         access |= java_access_flags::NATIVE;
-        auto v = file_descr.methods.add();
+        auto &v = file_descr.methods.add();
         v.access_flags = access;
         v.name_index = add_str(n);
 
@@ -274,7 +276,7 @@ class class_file {
         auto descr = java_types::v(fj);
         v.descriptor_index = add_str(descr);
 
-        native_methods.push_back({n, descr, (void*)fp});
+        native_methods.push_back({n, descr, (void*)fj});
 
         return *this;
     }
@@ -292,6 +294,47 @@ class class_file {
 };
 
 #undef BUILD
+
+namespace java_types {
+    typedef u4 java_align_t;
+
+    int find_pos(JNIEnv *e, jclass clazz, jfieldID field_id, java_align_t m, int end = 12) {
+        jobject o = e->AllocObject(clazz); // free ?
+        e->SetIntField(o, field_id, m);
+
+        java_align_t *b = *(java_align_t**)o;
+        int r = 0;
+        while (r < end) {
+            if (b[r] == m) return r;
+            r++;
+        }
+        return -1;
+    }
+
+    void detect_object_offset(JNIEnv *e) {
+        java_align_t search_magic = 0xFE3A5638u;
+
+        /* We assume that object offset is aligned as java_align_t */
+        class_file cf("class_path");
+        cf.var("I", "vtest", java_access_flags::PUBLIC);
+        //cf.var("L", "aaaa", java_access_flags::PUBLIC);
+        cf.build().to_file("ooo.class");
+        jclass clazz = cf.reg_class(e);
+        jfieldID field_id = e->GetFieldID(clazz, "vtest", "I");
+        fprintf(stderr, "field id=%d\n", field_id); // TODO: LOG
+
+        /* search for magic in object */
+        __search: 
+        int pos1 = find_pos(e, clazz, field_id, search_magic);
+        int pos2 = find_pos(e, clazz, field_id, search_magic);
+        if (pos1 != pos2) goto __search;
+        if (pos1 == -1) {} // TODO: !!!!!
+
+        pos1 *= sizeof(java_align_t);
+        fprintf(stderr, "jvm object offset: %d\n", pos1); // TODO: LOG
+        jvm_object_offset = pos1;
+    }
+};
 
 #endif
 

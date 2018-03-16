@@ -5,17 +5,7 @@
 
 template<class T, class align_t=jint>
 class wrap_class : class_file {
-    public:
-    /*template<class ... Targs>
-    inline static auto construct(T *p, args...) {
-        new (p) tst(a);
-        return java_types::special_object_func(args);
-    }
-
-    inline static auto destruct(T *p, class ... Targs) {
-        p->~T();
-        return java_types::special_object_func();
-    }*/
+    public: 
 
     wrap_class(std::string path)
         : class_file(path) {
@@ -26,9 +16,18 @@ class wrap_class : class_file {
         for (int i=0; i<sz; i++) class_file::var(java_types::v<align_t>());
 
         // constructor
-        //native<>(name);
+        // TODO: more constructors
+        //class_file::native<java_types::construct<T>>(name, java_access_flags::PROTECTED);
 
         // destructor
+        class_file::native<java_types::destruct<T>>("finalize", java_access_flags::PROTECTED);
+    }
+
+    template<class ... Targs_c>
+    auto &constructor() {
+        class_file::native<java_types::construct<T, Targs_c...>> (
+                name, java_access_flags::PROTECTED);
+        return *this;
     }
 
     template<auto(T::*fp)(...)>

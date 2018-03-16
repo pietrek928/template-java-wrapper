@@ -92,14 +92,17 @@ namespace java_types {
         return std::is_same<Tr, special_object_func>::value;
     }
 
-    template<class T>
-    using to_java_t = decltype((*(tclass<T>*)NULL).r((JNIEnv*)NULL));
-
-    const static int jvm_object_offset = 8; /* TODO: detect, from GetFieldId ? */
+    /*
+     *  Extracts C++ object from java object
+     * */
+    int jvm_object_offset; /* TODO: detect, from GetFieldId ? */
     template<class To>
     inline auto object_ptr(jobject* obj) {
         return (To*)(((uint8_t*)*obj)+jvm_object_offset);
     }
+
+    template<class T>
+    using to_java_t = decltype((*(tclass<T>*)NULL).r((JNIEnv*)NULL));
 
     template<>
     inline auto object_ptr<jobject>(jobject* obj) {
@@ -176,7 +179,7 @@ namespace java_types {
         return f_cvt<fpc, jobject, Tr_c, Targs_c...>();
     }
 
-    /* handles special function - operating on object but not from object */
+    /* handles special function - operating on object but not declareed inside object */
     template<auto fpc, class To, class ... Targs_c>
     inline auto __f(special_object_func(*_fpc)(To*, Targs_c...)) {
         return f_cvt<fpc, To, special_object_func, Targs_c...>();
@@ -185,6 +188,20 @@ namespace java_types {
     template<auto fpc>
     auto f() {
         return __f<fpc>(fpc);
+    }
+
+    /* constructor wrapper */
+    template<class T, class ... Targs>
+    inline auto construct(T *p, Targs ... args) {
+        new (p) T(args...);
+        return java_types::special_object_func();
+    }
+
+    /* destructor wrapper */
+    template<class T>
+    inline auto destruct(T *p) {
+        p->~T();
+        return java_types::special_object_func();
     }
 
 };
