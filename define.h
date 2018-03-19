@@ -19,5 +19,12 @@ typedef struct {                                                        \
 #define hasattr(v, n) CONCAT( _tester_has_, n )::test(&(v))
 #define hasattr_t(t, n) CONCAT( _tester_has_, n )::test((t*)NULL)
 
+#define __FILE_INFO__ __FILE__ "(%s):" STR(__LINE__) ": "
+
+// TODO: color ?
+#define ERR( fmt, args...) fprintf(stderr, "error: " __FILE_INFO__ fmt "\n", __PRETTY_FUNCTION__, args);
+#define WARN(fmt, args...) fprintf(stderr, "warning: "  __FILE_INFO__ fmt "\n", __PRETTY_FUNCTION__, args);
+#define INFO(fmt, args...) fprintf(stderr, "info: " __FILE_INFO__ fmt "\n", __PRETTY_FUNCTION__, args);
+
 #endif /* __DEFINE_H_ */
 

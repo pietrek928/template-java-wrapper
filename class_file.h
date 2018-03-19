@@ -4,6 +4,7 @@
 #include <vector>
 #include <algorithm>
 #include <string>
+#include <stdexcept>
 
 #include <stdint.h>
 #include <jni.h>
@@ -21,7 +22,7 @@ const static int composable = 1; \
 template<class Tr>                \
 void compose(Tr &v) {              \
 v                                   \
-__VA_ARGS__;                         \
+ __VA_ARGS__;                        \
 }                                     \
 
 class class_file {
@@ -162,8 +163,8 @@ class class_file {
         }
 
 #ifdef _GLIBCXX_FSTREAM
-        auto to_file(std::string name) {
-            std::ofstream F(name, std::ofstream::binary);
+        auto &to_file(std::string f) {
+            std::ofstream F(f, std::ofstream::binary);
             F.write((const char *)&*begin(), size());
             F.close();
             return *this;
@@ -185,7 +186,7 @@ class class_file {
 
         u4 magic = class_file_magic;
         u2 minor_version = 0;
-        u2 major_version = 47;
+        u2 major_version = 51;
         entry_list<cp_info> constant_pool;
         u2 access_flags = java_access_flags::PUBLIC;
         u2 this_class = 0;
@@ -219,7 +220,6 @@ class class_file {
     public:
     ClassFile file_descr;
 
-    std::string name;
     std::string path;
     std::vector<native_method> native_methods; 
 
@@ -231,18 +231,25 @@ class class_file {
 
     jclass reg_class(JNIEnv *e) {
         auto class_data = build();
-        jclass clazz = e->DefineClass(name.c_str(), NULL, (const jbyte*)&*class_data.begin(), class_data.size());
-        if (!clazz) {fprintf(stderr, "class error.\n"); return NULL;} // TODO: !!!!!!
+        jclass clazz = e->DefineClass(path.c_str(), NULL, (const jbyte*)&*class_data.begin(), class_data.size());
+        if (!clazz) {
+            ERR("class %s registering error", path.c_str());
+            throw std::runtime_error("Could not register class in JNI");
+        }
+        return clazz;
+    }
+
+    void reg_methods(JNIEnv *e, jclass clazz) {
         std::vector<JNINativeMethod> ncvt;
         for (auto &n : native_methods) {
             JNINativeMethod md = {(char*)n.name.c_str(), (char*)n.descr.c_str(), n.fp};
             ncvt.push_back(md);
+        } 
+        if (e->RegisterNatives(clazz, &*ncvt.begin(), ncvt.size()) != JNI_OK) {
+            ERR("Registering %d JNI methods in class %s failed", ncvt.size(), path.c_str());
+            throw std::runtime_error("Could not register methods in JNI");
         }
-        if (e->RegisterNatives(clazz, &*ncvt.begin(), ncvt.size()) < 0) {
-            // TODO: !!!!!!
-        }
-        return clazz;
-    } 
+    }
 
     template<typename Tf, class ... Cargs>
     u2 new_const(Tf f, Cargs ... args) {
@@ -281,14 +288,25 @@ class class_file {
         return *this;
     }
 
+    std::string path_dir() {
+        auto last_delim = path.find_last_of("/");
+        return path.substr(0, last_delim);
+    }
+
+    std::string path_name() {
+        auto last_delim = path.find_last_of("/");
+        return (last_delim != path.npos ? path.substr(last_delim+1) : path);
+    }
+
     class_file(std::string _path) {
         std::replace( _path.begin(), _path.end(), '.', '/');
         path = _path;
-        auto last_delim = _path.find_last_of("/");
-        name = (last_delim != name.npos ? _path.substr(last_delim+1) : _path);
 
         file_descr.this_class = new_const(cp_info::init_class,
-                add_str(name)
+                add_str(path)
+        );
+        file_descr.super_class = new_const(cp_info::init_class,
+                add_str("java/lang/Object")
         );
     }
 };
@@ -314,24 +332,27 @@ namespace java_types {
     void detect_object_offset(JNIEnv *e) {
         java_align_t search_magic = 0xFE3A5638u;
 
-        /* We assume that object offset is aligned as java_align_t */
+        /* We assume that object offset is as aligned as java_align_t */
         class_file cf("class_path");
         cf.var("I", "vtest", java_access_flags::PUBLIC);
-        //cf.var("L", "aaaa", java_access_flags::PUBLIC);
-        cf.build().to_file("ooo.class");
+        //cf.build().to_file("ooo.class");
         jclass clazz = cf.reg_class(e);
         jfieldID field_id = e->GetFieldID(clazz, "vtest", "I");
-        fprintf(stderr, "field id=%d\n", field_id); // TODO: LOG
+        INFO("field id=%d", field_id);
 
         /* search for magic in object */
         __search: 
         int pos1 = find_pos(e, clazz, field_id, search_magic);
         int pos2 = find_pos(e, clazz, field_id, search_magic);
         if (pos1 != pos2) goto __search;
-        if (pos1 == -1) {} // TODO: !!!!!
+
+        if (pos1 == -1) {
+            ERR("Looking for position field in java class failed", "");
+            throw std::runtime_error("Could not jni object offset");
+        }
 
         pos1 *= sizeof(java_align_t);
-        fprintf(stderr, "jvm object offset: %d\n", pos1); // TODO: LOG
+        INFO("jvm object offset: %d\n", pos1);
         jvm_object_offset = pos1;
     }
 };

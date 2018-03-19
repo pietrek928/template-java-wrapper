@@ -31,7 +31,6 @@ JNIEXPORT jboolean JNICALL Java_Sample1_booleanMethod
     jclass cls = env->GetObjectClass(obj);
     printf("id=%d\n", env->GetFieldID(cls, "a", "I"));
 
-    //
     java_types::detect_object_offset(env);
 
     return !boolean;
