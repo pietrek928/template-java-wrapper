@@ -51,12 +51,11 @@ class wrap_class : class_file {
         return *this;
     }
 
-    /*template<class ... Targs_c>
-    auto &constructor(std::string n = "getInstance") {
-        class_file::native<java_types::construct<T, Targs_c...>> (
-                n, java_access_flags::PUBLIC);
+    template<class ... Targs_c>
+    auto &constructor(u2 access = java_access_flags::PUBLIC, std::string n = "getInstance") {
+        native<java_types::get_instance<T, Targs_c...>> (n, access);
         return *this;
-    }*/
+    }
 
     auto &var(std::string t, std::string n, u2 access = java_access_flags::PUBLIC) {
         class_file::var(t, n, access);
@@ -72,7 +71,7 @@ class wrap_class : class_file {
             ERR("Class by path '%s' not found", path.c_str());
             throw std::runtime_error("Class not found");
         }
-        java_types::class_factory<T>::set_class_ptr(clazz);
+        java_types::class_factory<T>::ref_class(e);
         class_file::reg_methods(e, clazz);
         return *this;
     }

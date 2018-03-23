@@ -6,11 +6,12 @@ class elo {
         System.out.println("iiiiiiiieeeeeee");
     }
 
-    // --- Main method to test our native library
     public static void main(String[] args) {
         System.loadLibrary("teeest");
+        System.out.println("eeeeooooeeee");
 
-        //teeest test = new teeest();
+        teeest test = teeest.getInstance();
+        System.out.println(test.ooo(1, 2));
 
         System.out.println("eeeeeee");
     }

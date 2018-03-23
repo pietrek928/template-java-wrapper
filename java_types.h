@@ -28,13 +28,9 @@ namespace java_types {
      * Type conversions
      * */
 
-    template<class T>
-    inline std::string _v();
-
-#define VAR_DESCR(t, d)        \
-    template <>                 \
-    inline std::string _v<t>() {  \
-        return STR(d);            \
+#define VAR_DESCR(t, d)            \
+    inline std::string _v(t *tv) {  \
+        return STR(d);               \
     }
     VAR_DESCR(void, V)
     VAR_DESCR(jboolean, Z)
@@ -65,39 +61,7 @@ namespace java_types {
         public:
             inline void r(JNIEnv *e) {}
     };
-
-    /*
-     * Stores class pointer and creates classes
-     * */
-    template<class Tc>
-    class class_factory {
-        static jclass class_ptr; /* TODO; shall we cache this ? */
-        public:
-
-        static void set_class_ptr(jclass _class_ptr) {
-            class_ptr = _class_ptr;
-        }
-
-        static jobject alloc(JNIEnv *e) {
-            return e->AllocObject(class_ptr);
-        }
-    };
-
-    /*
-     *  Extracts C++ object from java object
-     * */
-    int jvm_object_offset; /* shall be set up by java_types::detect_object_offset */
-    template<class To>
-    inline auto object_ptr(jobject obj) {
-        return (To*)((*(uint8_t*)obj)+jvm_object_offset);
-    }
-
-    /* jobject -> jobject - no conversion needed */
-    template<>
-    inline auto object_ptr<jobject>(jobject obj) {
-        return obj;
-    }
-
+ 
 #define MAP_TYPE(tc, tj)               \
     template<>                          \
     class tclass<tc> {                   \
@@ -137,7 +101,118 @@ namespace java_types {
     template<class Tr, class ... Ta>
     constexpr bool returns_special(Tr(*f)(Ta...)) {
         return std::is_same<Tr, special_object_func>::value;
-    } 
+    }
+
+    /*
+     * Stores class pointer and creates classes
+     * */
+    typedef struct {
+        jclass *clazz;
+        int *index;
+        std::string path;
+    } class_ref_info;
+    std::vector<class_ref_info> class_holder; // TODO: store those values better
+    template<class Tc>
+    class class_factory {
+        static int index;
+        static jclass clazz;
+
+        public:
+
+        static auto &get_info() {
+            if (index<0) {
+                index = class_holder.size();
+                class_holder.emplace_back();
+                auto &v = class_holder.back();
+                v.clazz = &clazz;
+                v.index = &index;
+            }
+            return class_holder[index];
+        }
+        static jclass get_class() {
+            if (!clazz) {
+                ERR("Tried to retrieve unreferenced C++ class %s\n", typeid(Tc).name());
+                throw std::runtime_error("Cannot retrieve unreferenced class");
+            }
+            return clazz;
+        }
+        static jobject alloc(JNIEnv *e) {
+            printf("aaaaaa %p\n", clazz); fflush(stdout);
+            return e->AllocObject(clazz);
+        }
+        static std::string get_path() {
+            auto &path = get_info().path;
+            if (path.size()==0) {
+                ERR("Tried to get path of unregister C++ class %s\n", typeid(Tc).name());
+                throw std::runtime_error("Cannot get unregistred class' path");
+            }
+            return path;
+        }
+        static void set_path(std::string &p) {
+            get_info().path = p;
+        }
+        static void ref_class(JNIEnv *e) {
+            auto &i = get_info();
+            jclass c = e->FindClass(i.path.c_str());
+            if (!c) {
+                ERR("Could not find java class %s for C++ class %s\n", i.path.c_str(), typeid(Tc).name());
+                throw std::runtime_error("Could not find java class");
+            }
+            clazz = (jclass)e->NewGlobalRef((jobject)c);
+        }
+    };
+    template<class Tc>
+    int class_factory<Tc>::index = -1;
+    template<class Tc>
+    jclass class_factory<Tc>::clazz = NULL;
+
+    void unreference_classes(JNIEnv *e) {
+        for (auto &c : class_holder) {
+            e->DeleteGlobalRef((jobject)*c.clazz);
+            *c.clazz = NULL;
+            *c.index = -1;
+        }
+        class_holder.clear();
+    }
+
+    /*
+     *  Extracts C++ object from java object
+     * */
+    int jvm_object_offset; /* shall be set up by java_types::detect_object_offset */
+    template<class To>
+    inline auto object_ptr(jobject obj) {
+        return (To*)((*(uint8_t**)obj)+jvm_object_offset);
+    }
+
+    /* jobject -> jobject - no conversion needed */
+    template<>
+    inline auto object_ptr<jobject>(jobject obj) {
+        return obj;
+    }
+
+    template<class Tc>
+    inline std::string _v(class_factory<Tc>* *tv) {
+        return "L"+class_factory<Tc>::get_path()+";";
+    }
+
+    /*
+     * passing java objects to and from C++
+     * */
+    template<class To>
+    class object_param {
+        public:
+        jobject o;
+        object_param(jobject o) : o(o) {}
+    };
+    template<class To>
+    class tclass<object_param<To>> {
+        public:
+        jobject o;
+        inline tclass(object_param<To> w) : o(w.o) {}
+        inline tclass(JNIEnv *e, class_factory<To> *o) : o((jobject)o) {}
+        inline operator To*() {return object_ptr<To>(o);}
+        inline class_factory<To> *r(JNIEnv *e) {return (class_factory<To>*)o;}
+    };
 
     /* type conversion to mathing java type */
     template<class T>
@@ -146,7 +221,7 @@ namespace java_types {
     /* convert function arguments */
     template<class ... Targs>
     std::string v() {
-        return (_v<Targs>() + ... + "");
+        return (_v((Targs*)1) + ... + "");
     }
 
     /* generate function signature */
@@ -268,11 +343,12 @@ namespace java_types {
     } 
 
 
-    /* constructor wrapper */
+    /* get new object instance */
     template<class T, class ... Targs>
-    inline jobject construct_static(T *p, Targs ... args) {
-        new (p) T(args...);
-        return java_types::special_object_func();
+    inline object_param<T> get_instance(JNIEnv *e, Targs ... args) {
+        jobject obj = class_factory<T>::alloc(e);
+        new (object_ptr<T>(obj)) T(args...);
+        return obj;
     }
 
     /* destructor wrapper */

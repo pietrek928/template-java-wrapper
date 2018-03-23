@@ -40,7 +40,7 @@ class class_file {
     class entry_list : public std::vector<T> {
         public:
         T &add() {
-            this->resize(this->size()+1);
+            this->emplace_back();
             return this->back();
         }
     };
@@ -335,7 +335,6 @@ namespace java_types {
         /* We assume that object offset is as aligned as java_align_t */
         class_file cf("class_path");
         cf.var("I", "vtest", java_access_flags::PUBLIC);
-        //cf.build().to_file("ooo.class");
         jclass clazz = cf.reg_class(e);
         jfieldID field_id = e->GetFieldID(clazz, "vtest", "I");
         INFO("field id=%d", field_id);

@@ -3,6 +3,7 @@
 
 #include <fstream>
 #include <wrap_class.h>
+#include <functional>
 
 #define __BUILD_CLASS
 
@@ -15,6 +16,7 @@
 #if defined(PACKAGE_REGISTER_CLASS) || defined(PACKAGE_REGISTER_METHODS)
 
 #define LOAD_CLASSES_DECL void __load_classes(JNIEnv *e)
+std::vector<int> test_vec;
 LOAD_CLASSES_DECL;
 jint JNICALL JNI_OnLoad(JavaVM* vm, void* /*reserved*/)
 {
@@ -32,8 +34,22 @@ jint JNICALL JNI_OnLoad(JavaVM* vm, void* /*reserved*/)
         ERR("Unknown exception thrown","")
         return JNI_FALSE;
     }
+    test_vec.push_back(1);
+    test_vec.push_back(2);
     return USE_JNI_VERSION;
 }
+
+void JNICALL JNI_OnUnload(JavaVM *vm, void* /*reserved*/) {
+    INFO("Module unloaded","")
+    JNIEnv* e = NULL;
+    if (vm->GetEnv((void**)&e, USE_JNI_VERSION) != JNI_OK || !e)
+        throw std::runtime_error("Could not get NJIEnv");
+    java_types::unreference_classes(e);
+}
+
+#define JNI_ENV_ARGS_N , e
+#define JNI_ENV_ARGS_T , JNIEnv*
+#define JNI_ENV_ARGS_F , JNIEnv* e
 
 #else /* defined(PACKAGE_REGISTER_CLASS) || defined(PACKAGE_REGISTER_METHODS) */
 
@@ -44,6 +60,10 @@ int main(int argc, char *argv[]) {
     __load_classes();
     return 0;
 }
+
+#define JNI_ENV_ARGS_N , __proj_dir
+#define JNI_ENV_ARGS_T , std::string&
+#define JNI_ENV_ARGS_F , std::string &__proj_dir
 
 #endif /* defined(PACKAGE_REGISTER_CLASS) || defined(PACKAGE_REGISTER_METHODS) */
 
@@ -56,9 +76,9 @@ int main(int argc, char *argv[]) {
 
 #ifdef PACKAGE_REGISTER_CLASS
 #undef PACKAGE_REGISTER_CLASS
-#define __BUILD_CLASS .reg_class(e)
+#define __BUILD_CLASS reg_class(e) // !!!!!!!!!
 #else
-#define PACKAGE_REGISTER_CLASS
+#define PACKAGE_REGISTER_CLASS 
 #endif /* PACKAGE_REGISTER_CLASS */
 
 #ifdef PACKAGE_REGISTER_METHODS
@@ -69,28 +89,35 @@ int main(int argc, char *argv[]) {
 #endif /* PACKAGE_REGISTER_METHODS */
 
 
-#define PACKAGE_ROOT(n, ...)                   \
+#define PACKAGE_ROOT(p, ...)                   \
 LOAD_CLASSES_DECL {                             \
-    std::string __package_name = STR(n) ".",     \
+    std::vector<std::pair<std::function<void(std::string& JNI_ENV_ARGS_T)>, std::string>> F; \
+    std::string __package_path = STR(p) ".",     \
                 __proj_dir = STR(CLASSPATH_ROOT); \
     __VA_ARGS__;                                   \
 }
 
-#define PACKAGE(n, ...)       \
+#define PACKAGE(p, ...)       \
 {                              \
-    auto &rn = __package_name;  \
-    std::string __package_name   \
-        = rn + ( STR(n) "." );    \
+    auto &rn = __package_path;  \
+    std::string __package_path   \
+        = rn + ( STR(p) "." );    \
     __VA_ARGS__;                   \
+    for (auto f : F) f.first(f.second JNI_ENV_ARGS_N); \
 }
 
 #define CLASSN(cj, cc, ...)              \
 {                                         \
-    wrap_class<cc>(__package_name+STR(cj)) \
-        __VA_ARGS__                         \
-        PACKAGE_WRITE_CLASS                  \
-        PACKAGE_REGISTER_CLASS                \
-        PACKAGE_REGISTER_METHODS;              \
+    std::string __class_path = __package_path+STR(cj); \
+    std::replace(__class_path.begin(), __class_path.end(), '.', '/'); \
+    java_types::class_factory<cc>::set_path(__class_path); \
+    F.push_back(std::make_pair([](std::string &__class_path JNI_ENV_ARGS_F) { \
+        wrap_class<cc>(__class_path) \
+            __VA_ARGS__                         \
+            PACKAGE_WRITE_CLASS                  \
+            PACKAGE_REGISTER_CLASS                \
+            PACKAGE_REGISTER_METHODS;              \
+    }, __class_path)); \
 }
 
 #define CLASS(cn, ...) CLASSN(cn, cn, __VA_ARGS__)

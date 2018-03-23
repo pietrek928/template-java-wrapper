@@ -14,12 +14,12 @@ lib$(PROG).so: $(PROG).cc class_file.h
 gen-classes: $(PROG).cc class_file.h
 	g++ $(CCFLAGS) $(PROG).cc -o gen-classes -O2 -s -DPACKAGE_WRITE_CLASS -DCLASSPATH_ROOT=test_classpath
 
-classes: gen-classes
+test_classpath/test/teeest/test/$(PROG).class: gen-classes
 	./gen-classes
 
-run: classes lib$(PROG).so $(JAVA_PROG).class
+run: test_classpath/test/teeest/test/$(PROG).class lib$(PROG).so $(JAVA_PROG).class
 	java -Djava.library.path=. -cp ./test_classpath elo
 
 clean:
-	rm -f $(PROG).class lib$(PROG).so gen-classes
+	rm -f ./test_classpath/test/teeest/test/$(PROG).class lib$(PROG).so gen-classes $(JAVA_PROG).class
 
