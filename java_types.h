@@ -109,13 +109,15 @@ namespace java_types {
     typedef struct {
         jclass *clazz;
         int *index;
+        jmethodID *constr_id;
         std::string path;
     } class_ref_info;
     std::vector<class_ref_info> class_holder; // TODO: store those values better
     template<class Tc>
     class class_factory {
-        static int index;
+        static int index; // TODO: struct ?
         static jclass clazz;
+        static jmethodID constr_id;
 
         public:
 
@@ -126,6 +128,7 @@ namespace java_types {
                 auto &v = class_holder.back();
                 v.clazz = &clazz;
                 v.index = &index;
+                v.constr_id = &constr_id;
             }
             return class_holder[index];
         }
@@ -137,13 +140,13 @@ namespace java_types {
             return clazz;
         }
         static jobject alloc(JNIEnv *e) {
-            printf("aaaaaa %p\n", clazz); fflush(stdout);
-            return e->AllocObject(clazz);
+            //return e->AllocObject(clazz);
+            return e->NewObject(clazz, constr_id); // TODO: template if we want constructor, otherwise there's no finalize
         }
         static std::string get_path() {
             auto &path = get_info().path;
             if (path.size()==0) {
-                ERR("Tried to get path of unregister C++ class %s\n", typeid(Tc).name());
+                ERR("Tried to get path of unregister C++ class %s", typeid(Tc).name());
                 throw std::runtime_error("Cannot get unregistred class' path");
             }
             return path;
@@ -155,22 +158,30 @@ namespace java_types {
             auto &i = get_info();
             jclass c = e->FindClass(i.path.c_str());
             if (!c) {
-                ERR("Could not find java class %s for C++ class %s\n", i.path.c_str(), typeid(Tc).name());
+                ERR("Could not find java class %s for C++ class %s", i.path.c_str(), typeid(Tc).name());
                 throw std::runtime_error("Could not find java class");
             }
             clazz = (jclass)e->NewGlobalRef((jobject)c);
+            constr_id = e->GetMethodID(clazz, "<init>", "()V");
+            if (!constr_id) {
+                ERR("Could not find constructr id java class %s", i.path.c_str());
+                throw std::runtime_error("Could not find constructor id");
+            }
         }
     };
     template<class Tc>
     int class_factory<Tc>::index = -1;
     template<class Tc>
     jclass class_factory<Tc>::clazz = NULL;
+    template<class Tc>
+    jmethodID class_factory<Tc>::constr_id = NULL;
 
     void unreference_classes(JNIEnv *e) {
         for (auto &c : class_holder) {
             e->DeleteGlobalRef((jobject)*c.clazz);
             *c.clazz = NULL;
             *c.index = -1;
+            *c.constr_id = NULL;
         }
         class_holder.clear();
     }

@@ -1,18 +1,17 @@
 
-int save_ret_val;
+int save_ret_val = 1;
 template<class ... Targs>
 auto sum_func(Targs ... args) {
     save_ret_val += (args + ... + 1);
     return save_ret_val;
 }
 
-short ooo(int a, int b, JNIEnv *e) {
+int yyy(int a, JNIEnv *e, bool b) {
     save_ret_val += a+b;
     return a+b;
 }
 
-int yyy(int a, JNIEnv *e, bool b) {
-    save_ret_val += a+b;
+short ooo(int a, int b, JNIEnv *e) {
     return a+b;
 }
 
@@ -29,32 +28,27 @@ class teeest {
     public:
     Tr a = 1;
     teeest() {
-        a += sum_func();
-        save_ret_val = a;
+        a += 1;
     }
     teeest(int oo) {
-        a += sum_func(oo);
-        save_ret_val = a;
+        a += oo;
     }
     teeest(int oo, int pp) {
-        a += sum_func(oo, pp);
-        save_ret_val = a;
+        a += oo+pp;
     }
     template<class ... Targs>
     Tr sum(Targs ... args) {
         auto r = (args + ... + 1);
         a += r;
-        save_ret_val = a;
         return r;
     }
     template<class ... Targs>
-    void sumv(Targs ... args) {
+    void sumv(JNIEnv *e, Targs ... args) {
         a += (args + ... + 1);
-        save_ret_val = a;
     }
     ~teeest() {
         a += 1;
-        save_ret_val = a;
+        save_ret_val += a;
     }
 };
 

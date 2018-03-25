@@ -76,9 +76,27 @@ class wrap_class : class_file {
         return *this;
     }
 
+    int create_dir(std::string &d) {
+        if (d.size() == 0) return -1;
+__recreate:
+        if (!mkdir(d.c_str(), S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH)) return 0;
+        switch(errno) {
+            case EEXIST: return 0;
+            case ENOENT: {
+                auto pos = d.find_last_of('/');
+                if (pos == d.npos) return -1;
+                auto parent = d.substr(0, pos);
+                if (!create_dir(parent))
+                    goto __recreate;
+            }
+            default: return -1;
+        }
+        return 0;
+    }
+
     auto &store(std::string base_dir) {
         auto full_path = base_dir+"/"+path_dir();
-        if (mkdir(full_path.c_str(), S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH) && errno!=EEXIST) {
+        if (create_dir(full_path)) {
             ERR("Could not create directory '%s', error: %s", full_path.c_str(), strerror(errno));
             throw std::runtime_error("Could not create directory");
         }

@@ -18,7 +18,7 @@ typedef uint16_t u2;
 typedef uint32_t u4;
 
 #define BUILD(...)              \
-const static int composable = 1; \
+constexpr static int composable = 1; \
 template<class Tr>                \
 void compose(Tr &v) {              \
 v                                   \
@@ -39,44 +39,108 @@ class class_file {
     template<class T>
     class entry_list : public std::vector<T> {
         public:
-        T &add() {
-            this->emplace_back();
+        template<class ... Targs>
+        T &add(Targs... args) {
+            this->emplace_back(args...);
             return this->back();
         }
     };
 
     class cp_info {
         public:
-        u1 tag;
-        entry_list<u1> data;
+        u1 tag = 0;
+        void *attr = NULL;
+
+        class Methodref_info {
+            public:
+            u2 class_index;
+            u2 name_and_type_index;
+
+            Methodref_info(u2 class_index, u2 name_and_type_index)
+                : class_index(class_index), name_and_type_index(name_and_type_index) {}
+
+            BUILD(
+                .add(class_index)
+                .add(name_and_type_index)
+            )
+        };
+
+        class NameAndType_info {
+            public:
+            u2 name_index;
+            u2 descriptor_index;
+
+            NameAndType_info(u2 name_index, u2 descriptor_index)
+                : name_index(name_index), descriptor_index(descriptor_index) {}
+
+            BUILD(
+                .add(name_index)
+                .add(descriptor_index)
+            )
+        };
 
         enum tag_type {
             Utf8 = 1,
             Class = 7,
+            Methodref = 10,
+            NameAndType = 12
         };
 
-        static void init_str( cp_info &t, std::string s ) {
+        static void init_str(cp_info &t, std::string s ) { // TODO: hashmap to avoid repeat
             t.tag = Utf8;
-            t.data.clear();
-            t.data.insert(t.data.end(), s.begin(), s.end());
+            auto *el = new entry_list<u1>;
+            el->insert(el->end(), s.begin(), s.end());
+            t.attr = (void*)el;
+        }
+
+        static void init_nameandtype(cp_info &t, u2 name_index, u2 descriptor_index) {
+            t.tag = NameAndType;
+            t.attr = (void*) new NameAndType_info(name_index, descriptor_index);
+        }
+
+        static void init_methodref(cp_info &t, u2 class_index, u2 name_index) {
+            t.tag = Methodref;
+            t.attr = (void*) new Methodref_info(class_index, name_index);
         }
 
         static void init_class( cp_info &t, u2 name_index ) {
             t.tag = Class;
-            t.data.clear();
-            t.data.insert(t.data.end(), (u1*)&name_index, (u1*)(&name_index  +1));
+            t.attr = (void*) new u2(name_index);
         }
         
         BUILD(
             .add(tag);
             switch( tag ) {
-                case Utf8: v.add(data); break;
-                case Class: v.add(*(u2*)&*data.begin()); break;
+                case Utf8: v.add(*(entry_list<u1>*)attr); break;
+                case Class: v.add(*(u2*)attr); break;
+                case Methodref: v.add(*(Methodref_info*)attr); break;
+                case NameAndType: v.add(*(NameAndType_info*)attr); break;
                 default:
                     // TODO: support rest
                     break;
             }
         )
+
+        cp_info() {}
+
+        cp_info(cp_info &&v) {
+            tag = v.tag;
+            attr = v.attr;
+            v.tag=0; v.attr=NULL;
+        }
+
+        ~cp_info() {
+            if (attr)
+            switch( tag ) {
+                case Utf8: delete (entry_list<u1>*)attr; break;
+                case Class: delete (u2*)attr; break;
+                case Methodref: delete (Methodref_info*)attr; break;
+                case NameAndType: delete (NameAndType_info*)attr; break;
+                default:
+                    // TODO: error
+                    break;
+            }
+        }
 
     };
 
@@ -106,12 +170,84 @@ class class_file {
         )
     };
 
+    class exception_info {
+        u2 start_pc = 0;
+        u2 end_pc = 0;
+        u2 handler_pc = 0;
+        u2 catch_type = 0;
+    };
+
+    class named_attribute_info {
+        public:
+        class Code_attribute {
+            public:
+            u2 max_stack = 0;
+            u2 max_locals = 0;
+            entry_list<u1> code;
+            entry_list<exception_info> exception_table;
+            entry_list<attribute_info> attributes;
+
+            BUILD(
+                .add(max_stack)
+                .add(max_locals)
+                .template add<u4>(code)
+                .add(exception_table)
+                .add(attributes)
+            )
+        };
+
+        enum named_attr_t {
+            None=0,
+            CODE
+        };
+
+        named_attr_t type = None;
+        u2 name_index;
+        void *attr = NULL;
+
+        named_attribute_info(named_attr_t type, u2 name_index)
+                : type(type), name_index(name_index) {
+            switch(type) {
+                case CODE: attr = (void*)new Code_attribute; break;
+            }
+        }
+
+        auto code_attr() {
+            return (Code_attribute*)attr;
+        }
+
+        BUILD(
+            .add(name_index);
+            class_file_builder vt;
+            if (attr)
+            switch(type) {
+                case CODE: vt.add(*(Code_attribute*)attr); break;
+            }
+            v.template add<u4>(vt);
+        )
+
+        named_attribute_info() {}
+
+        named_attribute_info(named_attribute_info &&v) {
+            type = v.type;
+            attr = v.attr;
+            v.type=None; v.attr=NULL;
+        }
+
+        ~named_attribute_info() {
+            if (attr)
+            switch(type) {
+                case CODE: delete (Code_attribute*)attr; break;
+            }
+        }
+    };
+
     class method_info {
         public:
         u2 access_flags;
         u2 name_index;
         u2 descriptor_index;
-        entry_list<attribute_info> attributes;
+        entry_list<named_attribute_info> attributes;
 
         BUILD(
             .add(access_flags)
@@ -132,17 +268,6 @@ class class_file {
             return *this;
         }
 
-        ATTR_CHECKER(composable)
-        template<class Tl=u2, class Tv>
-        inline class_file_builder &add(entry_list<Tv> &v) {
-            add(Tl(v.size()));
-            if constexpr(hasattr_t(Tv, composable)) {
-                for (auto &i : v) i.compose(*this);
-            } else
-                insert(end(), (u1*)&*v.begin(), (u1*)&*v.end());
-            return *this;
-        }
-
         inline auto &add(u1 v) {
             push_back(v);
             return *this;
@@ -159,6 +284,24 @@ class class_file {
             push_back(v>>16);
             push_back(v>>8);
             push_back(v);
+            return *this;
+        }
+
+        ATTR_CHECKER(composable)
+        template<class Tl=u2, class Tv>
+        inline auto &add(entry_list<Tv> &v) {
+            add(Tl(v.size()));
+            if constexpr(hasattr_t(Tv, composable)) {
+                for (auto &i : v) i.compose(*this);
+            } else
+                insert(end(), (u1*)&*v.begin(), (u1*)&*v.end()); // TODO: little endian -> big endian
+            return *this;
+        }
+
+        template<class Tl=u2>
+        inline auto &add(class_file_builder &v) {
+            add(Tl(v.size()));
+            insert(end(), (u1*)&*v.begin(), (u1*)&*v.end());
             return *this;
         }
 
@@ -272,6 +415,36 @@ class class_file {
         return *this;
     }
 
+    void empty_constr() {
+        auto &v = file_descr.methods.add();
+        v.access_flags = java_access_flags::PUBLIC;
+        v.name_index = add_str("<init>");
+        v.descriptor_index = add_str("()V");
+
+        // add superclass constructor reference
+        u2 constr_ref = new_const(cp_info::init_methodref,
+            file_descr.super_class,
+            new_const(cp_info::init_nameandtype,
+                add_str("<init>"),
+                add_str("()V")
+            )
+        );
+        
+        // empty code
+        auto &a = v.attributes.add(named_attribute_info::CODE, add_str("Code"));
+        auto &descr = *a.code_attr();
+        descr.max_stack = 1;
+        descr.max_locals = 1;
+
+        descr.code.add(0x2a); // aload_0
+
+        descr.code.add(0xb7); // invokespecial
+        descr.code.add(constr_ref>>8);
+        descr.code.add(constr_ref&0xFF);
+
+        descr.code.add(0xb1); // return
+    }
+
     template<auto fp>
     auto &native(std::string n, u2 access = java_access_flags::PUBLIC) {
         access |= java_access_flags::NATIVE;
@@ -308,6 +481,8 @@ class class_file {
         file_descr.super_class = new_const(cp_info::init_class,
                 add_str("java/lang/Object")
         );
+        
+        empty_constr();
     }
 };
 
