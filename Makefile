@@ -2,7 +2,7 @@ PROG=teeest
 JAVA_PROG=test_classpath/elo
 TEST_CLASSPATH=test_classpath/test/teeest/test/$(PROG)
 
-HDRS=class_file.h wrap_class.h teeest.cc teeest.cc
+HDRS=java_types.h class_file.h wrap_class.h teeest.cc teeest.cc
 
 all: lib$(PROG).so
 
@@ -20,8 +20,8 @@ gen-classes: $(PROG).cc $(HDRS)
 $(TEST_CLASSPATH).class: gen-classes
 	./gen-classes
 
-run: $(TEST_CLASSPATH).class lib$(PROG).so $(JAVA_PROG).class
-	java -Djava.library.path=. -cp ./test_classpath elo
+test: $(TEST_CLASSPATH).class lib$(PROG).so $(JAVA_PROG).class
+	java -ea -Djava.library.path=. -cp ./test_classpath elo
 
 clean:
 	rm -rf test_classpath/test lib$(PROG).so gen-classes $(JAVA_PROG).class

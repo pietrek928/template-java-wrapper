@@ -16,35 +16,33 @@
 #if defined(PACKAGE_REGISTER_CLASS) || defined(PACKAGE_REGISTER_METHODS)
 
 #define LOAD_CLASSES_DECL void __load_classes(JNIEnv *e)
-std::vector<int> test_vec;
 LOAD_CLASSES_DECL;
 jint JNICALL JNI_OnLoad(JavaVM* vm, void* /*reserved*/)
 {
-    try {
-        JNIEnv* e = NULL;
-        if (vm->GetEnv((void**)&e, USE_JNI_VERSION) != JNI_OK || !e)
-            throw std::runtime_error("Could not get NJIEnv");
-        java_types::detect_object_offset(e);
-        __load_classes(e);
-        INFO("Module loaded","")
-    } catch (const std::exception &e) {
-        ERR("%s",e.what())
-        return JNI_FALSE;
-    } catch(...) {
-        ERR("Unknown exception thrown","")
+    JNIEnv* e = NULL;
+    if (vm->GetEnv((void**)&e, USE_JNI_VERSION) != JNI_OK || !e) {
+        ERR("Could not get JNIEnv while loading module", "");
         return JNI_FALSE;
     }
-    test_vec.push_back(1);
-    test_vec.push_back(2);
-    return USE_JNI_VERSION;
+    CPP2JAVA_TRY(
+        java_types::detect_object_offset(e);
+        __load_classes(e);
+        INFO("Module loaded","");
+        return USE_JNI_VERSION;
+    )
+    return JNI_FALSE;
 }
 
 void JNICALL JNI_OnUnload(JavaVM *vm, void* /*reserved*/) {
-    INFO("Module unloaded","")
     JNIEnv* e = NULL;
-    if (vm->GetEnv((void**)&e, USE_JNI_VERSION) != JNI_OK || !e)
-        throw std::runtime_error("Could not get NJIEnv");
-    java_types::unreference_classes(e);
+    if (vm->GetEnv((void**)&e, USE_JNI_VERSION) != JNI_OK || !e) {
+        ERR("Could not get JNIEnv while unloading module", "");
+        return;
+    }
+    CPP2JAVA_TRY(
+        java_types::unreference_classes(e);
+        INFO("Module unloaded","");
+    )
 }
 
 #define JNI_ENV_ARGS_N , e

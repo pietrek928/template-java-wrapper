@@ -13,6 +13,8 @@ PACKAGE_ROOT(test,
             .native<&ooo>("ooo")
             .native<&yyy>("yyy")
             .native<&kkk>("kkk")
+            .native<&err_func>("err_func")
+            .native<&err_func_strange>("err_func_strange")
             .native<get_ret_val>("get_ret_val")
         )
     )

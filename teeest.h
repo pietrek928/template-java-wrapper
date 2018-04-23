@@ -1,4 +1,6 @@
 
+#include <exception>
+
 int save_ret_val = 1;
 template<class ... Targs>
 auto sum_func(Targs ... args) {
@@ -12,6 +14,7 @@ int yyy(int a, JNIEnv *e, bool b) {
 }
 
 short ooo(int a, int b, JNIEnv *e) {
+    save_ret_val += a+b;
     return a+b;
 }
 
@@ -21,6 +24,16 @@ void kkk(JNIEnv *e) {
 
 auto get_ret_val() {
     return save_ret_val;
+}
+
+void err_func() {
+    save_ret_val += 1;
+    throw std::runtime_error("An error occured");
+}
+
+void err_func_strange() {
+    save_ret_val += 1;
+    throw 15;
 }
 
 template<class Tr>

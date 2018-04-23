@@ -2,6 +2,7 @@
 #define __JAVA_TYPES_H_
 
 #include "define.h"
+#include "exceptions.h"
 
 namespace java_access_flags {
     const static int
@@ -133,10 +134,13 @@ namespace java_types {
         }
         static jobject alloc(JNIEnv *e) {
             if constexpr(full_object) {
+                // java object can use only empty constructor
+                // C++ constructors are mapped to static initializers
                 return e->NewObject(descr.clazz, descr.constr_id);
             } else {
-                return e->AllocObject(descr.clazz); // CAUTION: for such object there's no finalize !!!!!!!
-                                                    // be aware of memory leak
+                // CAUTION: for such object there's no finalize !!!!!!!
+                // be aware of memory leak
+                return e->AllocObject(descr.clazz);
             }
         }
         static std::string &get_path() {
@@ -161,7 +165,7 @@ namespace java_types {
                 descr.clazz = (jclass)e->NewGlobalRef((jobject)c);
                 descr.constr_id = e->GetMethodID(descr.clazz, "<init>", "()V");
                 if (!descr.constr_id) {
-                    ERR("Could not find constructr id java class %s", descr.path.c_str());
+                    ERR("Could not find constructor id java class %s", descr.path.c_str());
                     throw std::runtime_error("Could not find constructor id");
                 }
             }
@@ -291,12 +295,17 @@ namespace java_types {
         }
     } 
 
+
     /* this function is called by JNI */
     template<auto fpc, class To, class ... Targs_c, class ... Targs_j>
     auto call_f( JNIEnv *e, jobject obj, Targs_j... args_j) {
-        return __call_f<fpc, To, Targs_c...>(
-                e, obj, args_j... ); // TODO: handle exceptions
+        CPP2JAVA_TRY(
+            return __call_f<fpc, To, Targs_c...>(
+                e, obj, args_j...
+            );
+        )
     }
+
 
     /* argument types conversion( neccessary for java function signature ) */
     template<auto fpc, class To, class Tr_c, const int sz, class Targc_n, class ... Targs_c, class ... Targs_j>
@@ -321,6 +330,7 @@ namespace java_types {
         return r;
     }
 
+
     /* function pointer from class */
     template<auto fpc, class To, class Tr_c, class ... Targs_c>
     inline auto __f(Tr_c(To::*_fpc)(Targs_c...)) {
@@ -339,6 +349,7 @@ namespace java_types {
         return f_cvt<fpc, To, special_object_func, sizeof...(Targs_c), Targs_c...>();
     } 
 
+
     /* convert function to a form callable by JNI */
     template<auto fpc>
     auto f() {
@@ -354,16 +365,13 @@ namespace java_types {
         return obj;
     }
 
+
     /* destructor wrapper */
     template<class T>
     inline auto destruct(T *p) {
         p->~T();
         return special_object_func();
     }
-
-#define JAVA_CATCH(__code__...) {
-    //
-}
 
 };
 

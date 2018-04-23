@@ -15,6 +15,26 @@ class elo {
         v.sumv(2, (short)3);
     }
 
+    static void test3() {
+        teeest v = teeest.getInstance();
+        try {
+            v.err_func();
+        } catch(Exception e) {
+            System.out.println(e);
+            v.sumv(1, (short)2);
+        }
+    }
+
+    static void test4() {
+        teeest v = teeest.getInstance();
+        try {
+            v.err_func_strange();
+        } catch(Exception e) {
+            System.out.println(e);
+            v.sumv(1, (short)2);
+        }
+    }
+
     static void test_wrap(Runnable test, int expected) {
         int vp = teeest.get_ret_val();
         test.run();
@@ -30,8 +50,10 @@ class elo {
 
         test_wrap(elo::test1, 6);
         test_wrap(elo::test1, 6);
-        test_wrap(elo::test2, 26);
-        test_wrap(elo::test2, 26);
+        test_wrap(elo::test2, 35);
+        test_wrap(elo::test2, 35);
+        test_wrap(elo::test3, 8);
+        test_wrap(elo::test4, 8);
 
     }
 
