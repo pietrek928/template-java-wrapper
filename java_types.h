@@ -107,81 +107,73 @@ namespace java_types {
      * Stores class pointer and creates classes
      * */
     typedef struct {
-        jclass *clazz;
-        int *index;
-        jmethodID *constr_id;
+        jclass clazz;
+        jmethodID constr_id; // TODO: optional field
         std::string path;
+
+        void clear() {
+            clazz = NULL;
+            constr_id = NULL;
+            path = "";
+        }
     } class_ref_info;
-    std::vector<class_ref_info> class_holder; // TODO: store those values better
-    template<class Tc>
+    std::vector<class_ref_info*> class_holder;
+    template<class Tc, bool full_object=true>
     class class_factory {
-        static int index; // TODO: struct ?
-        static jclass clazz;
-        static jmethodID constr_id;
+        static class_ref_info descr;
 
         public:
 
-        static auto &get_info() {
-            if (index<0) {
-                index = class_holder.size();
-                class_holder.emplace_back();
-                auto &v = class_holder.back();
-                v.clazz = &clazz;
-                v.index = &index;
-                v.constr_id = &constr_id;
-            }
-            return class_holder[index];
-        }
         static jclass get_class() {
-            if (!clazz) {
+            if (!descr.clazz) {
                 ERR("Tried to retrieve unreferenced C++ class %s\n", typeid(Tc).name());
                 throw std::runtime_error("Cannot retrieve unreferenced class");
             }
-            return clazz;
+            return descr.clazz;
         }
         static jobject alloc(JNIEnv *e) {
-            //return e->AllocObject(clazz);
-            return e->NewObject(clazz, constr_id); // TODO: template if we want constructor, otherwise there's no finalize
+            if constexpr(full_object) {
+                return e->NewObject(descr.clazz, descr.constr_id);
+            } else {
+                return e->AllocObject(descr.clazz); // CAUTION: for such object there's no finalize !!!!!!!
+                                                    // be aware of memory leak
+            }
         }
-        static std::string get_path() {
-            auto &path = get_info().path;
-            if (path.size()==0) {
+        static std::string &get_path() {
+            if (descr.path.size()==0) {
                 ERR("Tried to get path of unregister C++ class %s", typeid(Tc).name());
                 throw std::runtime_error("Cannot get unregistred class' path");
             }
-            return path;
+            return descr.path;
         }
         static void set_path(std::string &p) {
-            get_info().path = p;
+            descr.path = p;
         }
         static void ref_class(JNIEnv *e) {
-            auto &i = get_info();
-            jclass c = e->FindClass(i.path.c_str());
+            if (descr.clazz) return; // already referenced
+            class_holder.push_back(&descr);
+            jclass c = e->FindClass(get_path().c_str());
             if (!c) {
-                ERR("Could not find java class %s for C++ class %s", i.path.c_str(), typeid(Tc).name());
+                ERR("Could not find java class '%s' for C++ class %s", descr.path.c_str(), typeid(Tc).name());
                 throw std::runtime_error("Could not find java class");
             }
-            clazz = (jclass)e->NewGlobalRef((jobject)c);
-            constr_id = e->GetMethodID(clazz, "<init>", "()V");
-            if (!constr_id) {
-                ERR("Could not find constructr id java class %s", i.path.c_str());
-                throw std::runtime_error("Could not find constructor id");
+            if constexpr(full_object) {
+                descr.clazz = (jclass)e->NewGlobalRef((jobject)c);
+                descr.constr_id = e->GetMethodID(descr.clazz, "<init>", "()V");
+                if (!descr.constr_id) {
+                    ERR("Could not find constructr id java class %s", descr.path.c_str());
+                    throw std::runtime_error("Could not find constructor id");
+                }
             }
         }
     };
-    template<class Tc>
-    int class_factory<Tc>::index = -1;
-    template<class Tc>
-    jclass class_factory<Tc>::clazz = NULL;
-    template<class Tc>
-    jmethodID class_factory<Tc>::constr_id = NULL;
+    template<class Tc, bool full_object>
+    class_ref_info class_factory<Tc, full_object>::descr = {NULL, NULL, ""};
 
     void unreference_classes(JNIEnv *e) {
-        for (auto &c : class_holder) {
-            e->DeleteGlobalRef((jobject)*c.clazz);
-            *c.clazz = NULL;
-            *c.index = -1;
-            *c.constr_id = NULL;
+        for (auto c : class_holder) {
+            e->DeleteGlobalRef((jobject)c->clazz);
+            c->clear();
         }
         class_holder.clear();
     }
@@ -366,8 +358,12 @@ namespace java_types {
     template<class T>
     inline auto destruct(T *p) {
         p->~T();
-        return java_types::special_object_func();
+        return special_object_func();
     }
+
+#define JAVA_CATCH(__code__...) {
+    //
+}
 
 };
 

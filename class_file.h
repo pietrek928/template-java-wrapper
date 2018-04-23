@@ -292,7 +292,7 @@ class class_file {
         inline auto &add(entry_list<Tv> &v) {
             add(Tl(v.size()));
             if constexpr(hasattr_t(Tv, composable)) {
-                for (auto &i : v) i.compose(*this);
+                for (auto &i : v) this->add(i);
             } else
                 insert(end(), (u1*)&*v.begin(), (u1*)&*v.end()); // TODO: little endian -> big endian
             return *this;
