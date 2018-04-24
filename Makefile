@@ -8,7 +8,7 @@ all: lib$(PROG).so
 
 CCFLAGS=-I. -I/usr/lib/jvm/java-9-openjdk/include -I/usr/lib/jvm/java-9-openjdk/include/linux -std=c++17
 
-$(JAVA_PROG).class: $(JAVA_PROG).java
+$(JAVA_PROG).class: lib$(PROG).so $(JAVA_PROG).java
 	javac -cp ./test_classpath $(JAVA_PROG).java
 
 lib$(PROG).so: $(PROG).cc $(HDRS)

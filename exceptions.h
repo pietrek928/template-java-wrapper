@@ -4,7 +4,9 @@
 
 #include <exception>
 
-inline void __throw_new(JNIEnv *e, const char *msg) {
+namespace java_exceptions {
+
+inline void throw_new(JNIEnv *e, const char *msg) {
     jclass ex_class = e->FindClass("java/lang/RuntimeException"); 
     if (!ex_class) {
         ERR("%s, \n !!!!!! Also Class by path '%s' not found", msg, "java/lang/RuntimeException");
@@ -13,30 +15,32 @@ inline void __throw_new(JNIEnv *e, const char *msg) {
     }
 }
 
-#define CPP2JAVA_TRY(__code__...) {  \
-    try {                             \
-        __code__;                      \
-    } catch(JavaException e) {          \
-        WARN("Java exception thrown - passing it", ""); \
-    } catch(std::exception &ex) {          \
-        __throw_new(e, ex.what());              \
-    } catch(...) {                           \
-        __throw_new(e, "Unknown exception thrown from C++"); \
-    }                                              \
-}
-
 class JavaException {
     public:
     JavaException() {}
 };
 
-#define JAVA2CPP_TRY(__code__...) { \
-    __code__;                        \
-    if (e->ExceptionCheck()) {        \
-        WARN("Java exception found - passing it", ""); \
-        throw JavaException();          \
-    }                                    \
+// propagate detected java exception
+void propagate_exception() {
+    WARN("Java exception found - passing it", "");
+    throw java_exceptions::JavaException();
 }
+
+}
+
+#define CPP2JAVA_TRY(__code__...) {  \
+    try {                             \
+        __code__;                      \
+    } catch(java_exceptions::JavaException e) {          \
+        WARN("Java exception thrown - passing it", ""); \
+    } catch(std::exception &ex) {          \
+        java_exceptions::throw_new(e, ex.what());              \
+    } catch(...) {                           \
+        java_exceptions::throw_new(e, "Unknown exception thrown from C++"); \
+    }                                              \
+}
+
+#define JEX {if (e->ExceptionCheck()) exceptions::propagate_exception();}
 
 
 #endif /* __EXCEPTIONS_H_ */
