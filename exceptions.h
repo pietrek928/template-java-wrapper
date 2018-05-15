@@ -40,7 +40,7 @@ void propagate_exception() {
     }                                              \
 }
 
-#define JEX {if (e->ExceptionCheck()) exceptions::propagate_exception();}
+#define JEX {if (e->ExceptionCheck()) java_exceptions::propagate_exception();}
 
 
 #endif /* __EXCEPTIONS_H_ */
