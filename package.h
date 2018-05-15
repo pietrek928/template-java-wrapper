@@ -2,8 +2,9 @@
 #define __PACKAGE_H_
 
 #include <fstream>
-#include <wrap_class.h>
 #include <functional>
+
+#include <wrap_class.h>
 
 #define __BUILD_CLASS
 

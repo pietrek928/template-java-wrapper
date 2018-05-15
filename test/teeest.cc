@@ -1,10 +1,13 @@
-#include "package.h"
+// indicates that file implements a java package
+#include <package.h>
 
+// wrapped class
 #include "teeest.h"
 
+// pachage definition
 PACKAGE_ROOT(test,
     PACKAGE(teeest.test,
-        CLASSN(teeest, teeest<int>,
+        CLASSN(teeest, teeest<int>, // class wrapping
             .constructor<>()
             .constructor<int>()
             .constructor<int,int>()

@@ -10,7 +10,6 @@
 #include <jni.h>
 
 #include "define.h"
-
 #include "java_types.h"
 
 typedef uint8_t  u1;

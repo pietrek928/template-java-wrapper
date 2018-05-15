@@ -1,4 +1,8 @@
 
+/*
+ * a class to be wrapped for tests
+ * */
+
 #include <exception>
 
 int save_ret_val = 1;
