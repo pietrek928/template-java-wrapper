@@ -221,9 +221,9 @@ namespace java_types {
         inline class_factory<To> *r(JNIEnv *e) {return (class_factory<To>*)o;}
     };
 
-    /* type conversion to mathing java type */
+    /* type conversion to matching java type */
     template<class T>
-    using to_java_t = decltype((*(tclass<T>*)NULL).r((JNIEnv*)NULL)); 
+    using to_java_t = decltype((*(tclass<T>*)NULL).r((JNIEnv*)NULL));
 
     /* convert function arguments */
     template<class ... Targs>
@@ -297,6 +297,9 @@ namespace java_types {
     } 
 
 
+/* we don't care what function returns if an exception is thrown */
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wreturn-type"
     /* this function is called by JNI */
     template<auto fpc, class To, class ... Targs_c, class ... Targs_j>
     auto call_f( JNIEnv *e, jobject obj, Targs_j... args_j) {
@@ -306,7 +309,7 @@ namespace java_types {
             );
         )
     }
-
+#pragma GCC diagnostic pop
 
     /* argument types conversion( neccessary for java function signature ) */
     template<auto fpc, class To, class Tr_c, const int sz, class Targc_n, class ... Targs_c, class ... Targs_j>
