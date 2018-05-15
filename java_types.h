@@ -256,12 +256,13 @@ namespace java_types {
     template<auto fpc, class To, class ... Targs_cw>
     inline auto __call_f( JNIEnv *e, jobject _obj, Targs_cw&... args ) {
         auto obj = object_ptr<To>(_obj);
-        static constexpr bool obj_func
-            = !std::is_same<To, jobject>::value;
         if constexpr(returns_void(fpc)) {
+            static constexpr bool obj_func
+                    = !std::is_same<To, jobject>::value;
             if constexpr (obj_func) {
                 (obj->*fpc)(args...);
             } else {
+                obj=obj; // not passed - void function
                 fpc(args...);
             }
             return;

@@ -22,13 +22,13 @@ jint JNICALL JNI_OnLoad(JavaVM* vm, void* /*reserved*/)
 {
     JNIEnv* e = NULL;
     if (vm->GetEnv((void**)&e, USE_JNI_VERSION) != JNI_OK || !e) {
-        ERR("Could not get JNIEnv while loading module", "");
+        ERR("Could not get JNIEnv while loading module");
         return JNI_FALSE;
     }
     CPP2JAVA_TRY(
         java_types::detect_object_offset(e);
         __load_classes(e);
-        INFO("Module loaded","");
+        INFO("Module loaded");
         return USE_JNI_VERSION;
     )
     return JNI_FALSE;
@@ -37,12 +37,12 @@ jint JNICALL JNI_OnLoad(JavaVM* vm, void* /*reserved*/)
 void JNICALL JNI_OnUnload(JavaVM *vm, void* /*reserved*/) {
     JNIEnv* e = NULL;
     if (vm->GetEnv((void**)&e, USE_JNI_VERSION) != JNI_OK || !e) {
-        ERR("Could not get JNIEnv while unloading module", "");
+        ERR("Could not get JNIEnv while unloading module");
         return;
     }
     CPP2JAVA_TRY(
         java_types::unreference_classes(e);
-        INFO("Module unloaded","");
+        INFO("Module unloaded");
     )
 }
 

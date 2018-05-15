@@ -170,10 +170,18 @@ class class_file {
     };
 
     class exception_info {
+        public:
         u2 start_pc = 0;
         u2 end_pc = 0;
         u2 handler_pc = 0;
         u2 catch_type = 0;
+
+        BUILD(
+            .add(start_pc)
+            .add(end_pc)
+            .add(handler_pc)
+            .add(catch_type)
+        )
     };
 
     class named_attribute_info {
@@ -208,6 +216,7 @@ class class_file {
                 : type(type), name_index(name_index) {
             switch(type) {
                 case CODE: attr = (void*)new Code_attribute; break;
+                default: break;
             }
         }
 
@@ -221,6 +230,7 @@ class class_file {
             if (attr)
             switch(type) {
                 case CODE: vt.add(*(Code_attribute*)attr); break;
+                default: break;
             }
             v.template add<u4>(vt);
         )
@@ -237,6 +247,7 @@ class class_file {
             if (attr)
             switch(type) {
                 case CODE: delete (Code_attribute*)attr; break;
+                default: break;
             }
         }
     };
@@ -388,7 +399,7 @@ class class_file {
             ncvt.push_back(md);
         } 
         if (e->RegisterNatives(clazz, &*ncvt.begin(), ncvt.size()) != JNI_OK) {
-            ERR("Registering %d JNI methods in class %s failed", ncvt.size(), path.c_str());
+            ERR("Registering %lu JNI methods in class %s failed", ncvt.size(), path.c_str());
             throw std::runtime_error("Could not register methods in JNI");
         }
     }
@@ -511,7 +522,7 @@ namespace java_types {
         cf.var("I", "vtest", java_access_flags::PUBLIC);
         jclass clazz = cf.reg_class(e);
         jfieldID field_id = e->GetFieldID(clazz, "vtest", "I");
-        INFO("field id=%d", field_id);
+        INFO("field id=%p", field_id);
 
         /* search for magic in object */
         __search: 
@@ -520,7 +531,7 @@ namespace java_types {
         if (pos1 != pos2) goto __search;
 
         if (pos1 == -1) {
-            ERR("Looking for position field in java class failed", "");
+            ERR("Looking for position field in java class failed");
             throw std::runtime_error("Could not jni object offset");
         }
 

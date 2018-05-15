@@ -22,7 +22,7 @@ class JavaException {
 
 // propagate detected java exception
 void propagate_exception() {
-    WARN("Java exception found - passing it", "");
+    WARN("Java exception found - passing it");
     throw java_exceptions::JavaException();
 }
 
@@ -31,8 +31,8 @@ void propagate_exception() {
 #define CPP2JAVA_TRY(__code__...) {  \
     try {                             \
         __code__;                      \
-    } catch(java_exceptions::JavaException e) {          \
-        WARN("Java exception thrown - passing it", ""); \
+    } catch(java_exceptions::JavaException e) {    \
+        WARN("Java exception thrown - passing it"); \
     } catch(std::exception &ex) {          \
         java_exceptions::throw_new(e, ex.what());              \
     } catch(...) {                           \

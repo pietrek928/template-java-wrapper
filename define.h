@@ -22,9 +22,9 @@ typedef struct {                                                        \
 #define __FILE_INFO__ __FILE__ "(%s):" STR(__LINE__) ": "
 
 // TODO: color ?
-#define ERR( fmt, args...) fprintf(stderr, "error: " __FILE_INFO__ fmt "\n", __PRETTY_FUNCTION__, args);
-#define WARN(fmt, args...) fprintf(stderr, "warning: "  __FILE_INFO__ fmt "\n", __PRETTY_FUNCTION__, args);
-#define INFO(fmt, args...) fprintf(stderr, "info: " __FILE_INFO__ fmt "\n", __PRETTY_FUNCTION__, args);
+#define ERR( fmt, ...) fprintf(stderr, "error: " __FILE_INFO__ fmt "\n", __PRETTY_FUNCTION__, ##__VA_ARGS__);
+#define WARN(fmt, ...) fprintf(stderr, "warning: "  __FILE_INFO__ fmt "\n", __PRETTY_FUNCTION__, ##__VA_ARGS__);
+#define INFO(fmt, ...) fprintf(stderr, "info: " __FILE_INFO__ fmt "\n", __PRETTY_FUNCTION__, ##__VA_ARGS__);
 
 #endif /* __DEFINE_H_ */
 
