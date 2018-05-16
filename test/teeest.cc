@@ -4,13 +4,14 @@
 // wrapped class
 #include "teeest.h"
 
-// pachage definition
+// package definition
 PACKAGE_ROOT(test,
     PACKAGE(teeest.test,
         CLASSN(teeest, teeest<int>, // class wrapping
             .constructor<>()
             .constructor<int>()
             .constructor<int,int>()
+            .native<&teeest<int>::sum<int,short>>("sum")
             .native<&teeest<int>::sumv<int,short>>("sumv")
             .native<&teeest<int>::sumv<int,short,int>>("sumv")
             .native<&ooo>("ooo")

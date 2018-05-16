@@ -536,7 +536,7 @@ namespace java_types {
         }
 
         pos1 *= sizeof(java_align_t);
-        INFO("jvm object offset: %d\n", pos1);
+        INFO("jvm object offset: %d", pos1);
         jvm_object_offset = pos1;
     }
 };

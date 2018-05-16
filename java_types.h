@@ -103,6 +103,10 @@ namespace java_types {
     constexpr bool returns_special(Tr(*f)(Ta...)) {
         return std::is_same<Tr, special_object_func>::value;
     }
+    template<class To, class Tr, class ... Ta>
+    constexpr bool returns_special(Tr(To::*f)(Ta...)) {
+        return std::is_same<Tr, special_object_func>::value;
+    }
 
     /*
      * Stores class pointer and creates classes
@@ -235,7 +239,7 @@ namespace java_types {
     template<class Tr, class To, class ... Targs>
     std::string v( Tr(*f)( JNIEnv*, To, Targs... ) ) {
         return "(" + v<Targs...>() + ")" + v<Tr>();
-    } 
+    }
 
 
     /*

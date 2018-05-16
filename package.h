@@ -94,6 +94,7 @@ LOAD_CLASSES_DECL {                             \
     std::string __package_path = STR(p) ".",     \
                 __proj_dir = STR(CLASSPATH_ROOT); \
     __VA_ARGS__;                                   \
+    for (auto f : F) f.first(f.second JNI_ENV_ARGS_N); \
 }
 
 #define PACKAGE(p, ...)       \
@@ -102,7 +103,6 @@ LOAD_CLASSES_DECL {                             \
     std::string __package_path   \
         = rn + ( STR(p) "." );    \
     __VA_ARGS__;                   \
-    for (auto f : F) f.first(f.second JNI_ENV_ARGS_N); \
 }
 
 #define CLASSN(cj, cc, ...)              \
