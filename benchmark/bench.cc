@@ -13,6 +13,9 @@ PACKAGE_ROOT(test,
         .native<&test3>("test3")
         .native<&test4>("test4")
         .native<&test5>("test5")
+        .native<&tests1>("tests1")
+        .native<&tests2>("tests2")
+        .native<&tests3>("tests3")
     )
 )
 

@@ -1,6 +1,8 @@
 #ifndef __JAVA_TYPES_H_
 #define __JAVA_TYPES_H_
 
+#include <string>
+
 #include "define.h"
 #include "exceptions.h"
 
@@ -62,6 +64,36 @@ namespace java_types {
         public:
             inline void r(JNIEnv *e) {}
     };
+
+    /* object of type as parameter */
+    template<class To>
+    class jobj_t {};
+    template<class To>
+    inline std::string _v(jobj_t<To> **o) {
+        return "L"+std::string(tclass<To>::cn)+";";
+    }
+
+    /* 
+     * convert strings
+     * */
+    template<>
+    class tclass<std::string> : public std::string {
+        public:
+            static constexpr const char* cn = "java/lang/String";
+
+            tclass(const std::string &s) : std::string(s) {}
+
+            tclass(JNIEnv *e, jobj_t<std::string>* o) {
+                jboolean release;
+                auto buf = e->GetStringUTFChars((jstring)o, &release); // FIXME: string encoding ?
+                assign(buf);
+                if (release) e->ReleaseStringUTFChars((jstring)o, buf);
+            }
+
+            inline jobj_t<std::string>* r(JNIEnv *e) {
+                return (jobj_t<std::string>*) e->NewStringUTF(c_str());
+            }
+    };
  
 #define MAP_TYPE(tc, tj)               \
     template<>                          \
@@ -122,7 +154,7 @@ namespace java_types {
             path = "";
         }
     } class_ref_info;
-    std::vector<class_ref_info*> class_holder;
+    std::vector<class_ref_info*> class_holder; // TODO: do without vector
     template<class Tc, bool full_object=true>
     class class_factory {
         static class_ref_info descr;

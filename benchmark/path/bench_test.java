@@ -12,7 +12,7 @@ class bench_test {
         test.run();
         long estimatedTime = System.nanoTime() - startTime;
         double r = ((double)estimatedTime)/n;
-        System.out.println("" + name + ": " + r);
+        System.out.println("" + name + ": " + r + "ns");
         return r;
     }
 
@@ -46,6 +46,20 @@ class bench_test {
 
         bench_func("object method gets int, returns int", () -> {
             for (long i=0; i<n; i++) t.test4(0);
+        });
+
+        bench_func("object method gets string", () -> {
+            for (long i=0; i<n; i++) t.tests1("1234567890");
+        });
+
+        bench_func("object method returns string", () -> {
+            String s;
+            for (long i=0; i<n; i++) s=t.tests2();
+        });
+
+        bench_func("object method gets string returns string", () -> {
+            String s = "1234567890";
+            for (long i=0; i<n; i++) s=t.tests3(s);
         });
     }
 

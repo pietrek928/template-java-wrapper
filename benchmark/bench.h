@@ -17,11 +17,12 @@ class bench {
     void test5(unsigned char a) {
     }
     void tests1(string s) {
+        //INFO("%s", s.c_str());
     }
     string tests2() {
         return "";
     }
     string tests3(string s) {
-        return "";
+        return s;
     }
 
