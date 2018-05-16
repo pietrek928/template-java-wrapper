@@ -6,7 +6,7 @@ HDRS=../java_types.h ../class_file.h ../wrap_class.h $(PROG).cc $(PROG).cc
 
 all: lib$(PROG).so
 
-CCFLAGS=-I"." -I".." -I"$(JAVA_HOME)/include" -I"$(JAVA_HOME)/include/linux" -std=c++17 -Wall -flto -O2
+CCFLAGS=-I"." -I".." -I"$(JAVA_HOME)/include" -I"$(JAVA_HOME)/include/linux" -std=c++17 -Wall -O2 -flto
 GPP=g++ $(CCFLAGS)
 
 $(JAVA_PROG).class: lib$(PROG).so $(JAVA_PROG).java
