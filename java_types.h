@@ -143,18 +143,22 @@ namespace java_types {
     /*
      * Stores class pointer and creates classes
      * */
-    typedef struct {
-        jclass clazz;
-        jmethodID constr_id; // TODO: optional field
-        std::string path;
+    class class_ref_info {
+        public:
 
-        void clear() {
-            clazz = NULL;
-            constr_id = NULL;
-            path = "";
+        jclass clazz = NULL;
+        jmethodID constr_id = NULL; // TODO: optional field
+        std::string path = "";
+
+        class_ref_info() {}
+
+        ~class_ref_info() {
+            INFO("Destroying '%s'", path.c_str());
+            //if (e && clazz)
+                //e->DeleteGlobalRef((jobject)clazz); // TODO: is unreference neccessary here ?
+            //INFO("Destroying %s", path.c_str());
         }
-    } class_ref_info;
-    std::vector<class_ref_info*> class_holder; // TODO: do without vector
+    };
     template<class Tc, bool full_object=true>
     class class_factory {
         static class_ref_info descr;
@@ -191,7 +195,6 @@ namespace java_types {
         }
         static void ref_class(JNIEnv *e) {
             if (descr.clazz) return; // already referenced
-            class_holder.push_back(&descr);
             jclass c = e->FindClass(get_path().c_str());
             if (!c) {
                 ERR("Could not find java class '%s' for C++ class %s", descr.path.c_str(), typeid(Tc).name());
@@ -208,15 +211,7 @@ namespace java_types {
         }
     };
     template<class Tc, bool full_object>
-    class_ref_info class_factory<Tc, full_object>::descr = {NULL, NULL, ""};
-
-    void unreference_classes(JNIEnv *e) {
-        for (auto c : class_holder) {
-            e->DeleteGlobalRef((jobject)c->clazz);
-            c->clear();
-        }
-        class_holder.clear();
-    }
+    class_ref_info class_factory<Tc, full_object>::descr;
 
     /*
      *  Extracts C++ object from java object

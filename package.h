@@ -40,10 +40,7 @@ void JNICALL JNI_OnUnload(JavaVM *vm, void* /*reserved*/) {
         ERR("Could not get JNIEnv while unloading module");
         return;
     }
-    CPP2JAVA_TRY(
-        java_types::unreference_classes(e);
-        INFO("Module unloaded");
-    )
+    INFO("Module unloaded");
 }
 
 #define JNI_ENV_ARGS_N , e
